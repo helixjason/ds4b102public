@@ -41,11 +41,55 @@ Sidebar {.sidebar}
 ```{r}
 # Inputs
 
+checkboxGroupInput(inputId = "checkbox_group", 
+                   label = h4("Checkbox Group"),
+                   choices = c("Marketing" = "marketing",
+                               "R&D" = "research",
+                               "Sales" = "sales"),
+                   selected = c("marketing", "research", "sales"))
+
+dateRangeInput(inputId = "date_range",
+               label = h4("Date Range"),
+               start = "2018-01-01",
+               end = today(),
+               min = "2018-01-01",
+               max = max(sales_data_tbl$date),
+               startview = "year")
+
+sliderInput(inputId = "slider_input",
+            label = h4("Slider Range"),
+            min = 1,
+            max = 100,
+            value = c(40,60),
+            step = 5,
+            round = TRUE,
+            pre = "$")
+
+
 ```
 
 
 ```{r}
 # Reset Button
+
+actionButton(inputId = "resetButton",
+             label = "Reset",
+             icon = icon("sync"))
+
+observeEvent(eventExpr = input$resetButton, 
+             handlerExpr = {
+                            
+               updateCheckboxGroupInput(session = session, 
+                                        inputId = "checkbox_group",
+                                        selected = c("marketing", "research", "sales"))
+               updateDateRangeInput(session = session,
+                                    inputId = "date_range",
+                                    start = "2018-01-01",
+                                    end = today())
+               updateSliderInput(session = session,
+                                inputId = "slider_input",
+                                 value = c(40,60))
+})
 
 ```
 
@@ -58,17 +102,29 @@ Column {data-width=500}
 
 ```{r}
 
+output$checkbox_values <- renderPrint(input$checkbox_group)
+
+textOutput(outputId = "checkbox_values")
+
 ```
 
 ### Section - Date Range
 
 ```{r}
 
+output$daterange_values <- renderPrint(input$date_range)
+
+textOutput(outputId = "daterange_values")
+
 ```
 
 ### Section - Slider Output
 
 ```{r}
+
+output$slider_values <- renderPrint(input$slider_input)
+
+textOutput(outputId = "slider_values")
 
 ```
 
@@ -79,12 +135,31 @@ Column {data-width=750}
 ```{r}
 # Reactive Filter
 
+sales_data_filtered <- reactive({
+  sales_data_tbl %>%
+    filter(class %in% input$checkbox_group) %>%
+    filter(date %>% between(left = ymd(input$date_range[1]),
+                            right = ymd(input$date_range[2]))) %>%
+    filter(sales %>% between(left = input$slider_input[1],
+                             right = input$slider_input[2]))
+})
+
 ```
 
 
 ### Section - Reactive Output
 
 ```{r}
+
+#renderPrint(sales_data_filtered())
+
+output$dt_output_1 <- DT::renderDataTable({
+  sales_data_filtered() %>%
+    mutate(sales = scales::dollar(sales))
+    
+}, options = list(scrollY = "250px"))
+
+DTOutput(outputId = "dt_output_1")
 
 
 ```
@@ -93,6 +168,18 @@ Column {data-width=750}
 ### Section - Reactive Summary
 
 ```{r}
+
+output$dt_output_2 <- DT:: renderDataTable(expr = {
+  
+  sales_data_filtered() %>%
+    group_by(class) %>%
+    summarise(total_revenue = sum(sales)) %>%
+    ungroup() %>%
+    mutate(total_revenue = scales:: dollar(total_revenue))
+    
+}, options = list(scrollY = "250px"))
+
+DTOutput(outputId = "dt_output_2")
 
 
 ```
