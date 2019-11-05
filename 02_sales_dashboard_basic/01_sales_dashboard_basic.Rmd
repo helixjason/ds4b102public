@@ -4,10 +4,13 @@ output:
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
+runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
+library(shiny)
+library(shinyWidgets)
 
 #core libraries
 library(tidyverse)
@@ -24,7 +27,7 @@ library(RSQLite)
 
 ```{r, include=FALSE}
 #Setup Connection to tables
-con <- dbConnect(RSQLite::SQLite(), "../00_data/bikes_database.db")
+con <- dbConnect(RSQLite::SQLite(), "/00_data/bikes_database.db")
 bikes_tbl <- tbl(con, "bikes")
 bikeshops_tbl <- tbl(con, "bikeshops")
 orderlines_tbl <- tbl(con, "orderlines")
