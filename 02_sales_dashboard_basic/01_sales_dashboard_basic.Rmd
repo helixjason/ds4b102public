@@ -56,6 +56,15 @@ Column {.sidebar}
 ----------------------------------------------
 
 ```{r}
+dateRangeInput(inputId = "date_range",
+               label = h4("Date Range"),
+               start = min(processed_data_tbl$order.date),
+               end = today(),
+               min = min(processed_data_tbl$order.date),
+               max = today(),
+               startview = "year")
+
+
 shinyWidgets::checkboxGroupButtons(inputId = "checkbox_category_1",
                                    label = h4("Bike Type"),
                                    choices = unique(processed_data_tbl$category_1),
@@ -64,6 +73,44 @@ shinyWidgets::checkboxGroupButtons(inputId = "checkbox_category_1",
                                      yes = icon("ok", lib = "glyphicon"),
                                      no = icon("remove", lib = "glyphicon")
                                    ))
+
+
+shinyWidgets::pickerInput(inputId = "picker_category_2",
+                          label = h4("Bike Family"),
+                          choices = unique(processed_data_tbl$category_2),
+                          selected = unique(processed_data_tbl$category_2),
+                          multiple = TRUE,
+                          options = list(
+                            `actions-box` = TRUE,
+                            size = 10,
+                            `selected-text-format` = "count > 3"
+                          ))
+
+br()
+hr()
+
+actionButton(inputId = "reset", label = "Reset", icon = icon("sync"))
+
+observeEvent(eventExpr = input$reset, handlerExpr = {
+  
+  updateCheckboxGroupButtons(
+    session = session,
+    inputId = "checkbox_category_1",
+    selected = unique(processed_data_tbl$category_1)
+  )
+  updatePickerInput(
+    session = session,
+    inputId = "picker_category_2",
+    selected = unique(processed_data_tbl$category_2)
+  )
+  updateDateRangeInput(
+    session = session,
+    inputId = "date_range",
+    start = min(processed_data_tbl$order.date),
+    end = today()
+  )
+})
+
 ```
 
 
@@ -74,17 +121,33 @@ Column {data-width=1000}
 ### By State
 
 ```{r}
-geo_plot_tbl <- processed_data_tbl %>%
-  group_by(state) %>%
-  summarise(totalrevenue = sum(extended_price)) %>%
-  ungroup() %>%
-  mutate(label_text = str_glue("State: {state}
+
+geo_plot_tbl <- reactive({
+  
+  processed_data_tbl %>%
+    
+    filter(category_1 %in% input$checkbox_category_1) %>%
+    
+    filter(category_2 %in% input$picker_category_2) %>%
+    
+    filter(order.date %>% between(left = ymd(input$date_range[1]),
+                                  right = ymd(input$date_range[2]))) %>%
+  
+    group_by(state) %>%
+    summarise(totalrevenue = sum(extended_price)) %>%
+    ungroup() %>%
+    mutate(label_text = str_glue("State: {state}
                                Revenue: {scales::dollar(totalrevenue)}"))
+})
+
+
 ```
 
 
 ```{r}
-geo_plot_tbl %>% 
+
+output$plotly_1 <- renderPlotly(expr = {
+  geo_plot_tbl() %>% 
   plot_geo(locationmode = "USA-states") %>%
   add_trace(z = ~totalrevenue, 
             locations = ~state, 
@@ -99,6 +162,10 @@ geo_plot_tbl %>%
       lakecolor = toRGB("white")
     )
   )
+})
+
+plotlyOutput(outputId = "plotly_1")
+
 ```
 
 
