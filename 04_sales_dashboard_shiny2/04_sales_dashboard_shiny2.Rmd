@@ -11,6 +11,7 @@ runtime: shiny
 library(flexdashboard)
 library(shiny)
 library(shinyWidgets)
+library(shinyjs)
 
 # Core
 library(tidyverse)
@@ -60,6 +61,8 @@ Column {.sidebar}
 
 ```{r}
 
+useShinyjs(rmd = TRUE)
+
 dateRangeInput(
   inputId = "date_range", 
   label   = h4("Date Range"),
@@ -97,6 +100,8 @@ br()
 hr()
 br()
 
+actionButton(inputId = "apply", label = "Apply", icon = icon("play"))
+
 actionButton(inputId = "reset", label = "Reset", icon = icon("sync"), status = "warning")
 
 observeEvent(eventExpr = input$reset, handlerExpr = {
@@ -117,14 +122,37 @@ observeEvent(eventExpr = input$reset, handlerExpr = {
     start   = min(processed_data_tbl$order.date), 
     end     = max(processed_data_tbl$order.date))
   
+  updateRadioGroupButtons(
+    session = session,
+    inputId = "time_unit",
+    selected = "month"
+  )
+  
+  shinyjs::delay(ms = 300, expr = {
+    shinyjs::click(id = "apply")
+  })
+  
 })
 
-renderPrint(input$date_range)
-
-# renderPrint(input$picker_category_2)
-
-# renderText(input$checkbox_category_1)
 ```
+
+```{r}
+
+processed_data_filtered_tbl  <-  eventReactive(eventExpr =  input$apply, valueExpr = {
+  processed_data_tbl %>%
+    
+    filter(order.date %>% between(left  = input$date_range[1], 
+                                  right = input$date_range[2])) %>%
+
+    filter(category_1 %in% input$checkbox_category_1) %>%
+    
+    filter(category_2 %in% input$picker_category_2)
+  
+}, ignoreNULL = FALSE)
+
+```
+
+
 
 
 Column {data-width=1000}
@@ -136,14 +164,7 @@ Column {data-width=1000}
 
 geo_plot_tbl <- reactive({
 
-  processed_data_tbl %>%
-    
-    filter(order.date %>% between(left  = input$date_range[1], 
-                                  right = input$date_range[2])) %>%
-
-    filter(category_1 %in% input$checkbox_category_1) %>%
-    
-    filter(category_2 %in% input$picker_category_2) %>%
+   processed_data_filtered_tbl() %>%
 
     group_by(state) %>%
     summarise(total_revenue = sum(extended_price)) %>%
@@ -215,13 +236,7 @@ time_plot_tbl <-  reactive({
 
   time_unit <- input$time_unit
 
-  processed_data_tbl %>%
-
-    filter(order.date %>% between(left  = input$date_range[1], 
-                                  right = input$date_range[2])) %>%
-    filter(category_1 %in% input$checkbox_category_1) %>%
-    
-    filter(category_2 %in% input$picker_category_2) %>%
+  processed_data_filtered_tbl() %>%
 
     mutate(date = floor_date(order.date, unit = time_unit)) %>%
     group_by(date) %>%
