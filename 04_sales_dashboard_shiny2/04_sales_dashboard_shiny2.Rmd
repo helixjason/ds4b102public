@@ -97,7 +97,7 @@ br()
 hr()
 br()
 
-actionButton(inputId = "reset", label = "Reset", icon = icon("sync"))
+actionButton(inputId = "reset", label = "Reset", icon = icon("sync"), status = "warning")
 
 observeEvent(eventExpr = input$reset, handlerExpr = {
   
@@ -119,7 +119,7 @@ observeEvent(eventExpr = input$reset, handlerExpr = {
   
 })
 
-# renderPrint(input$date_range)
+renderPrint(input$date_range)
 
 # renderPrint(input$picker_category_2)
 
@@ -194,20 +194,71 @@ Column {data-width=400}
 ###Over Time
 
 ```{r}
+shinyWidgets::radioGroupButtons(
+  inputId = "time_unit",
+  label = "Time Unit",
+  choices = c("D" = "day", "W" = "week", "M" = "month", "Q" = "quarter", "Y" = "year"),
+  selected = "month",
+  status = "success",
+  justified = TRUE,
+  checkIcon = list(yes = icon("ok", lib = "glyphicon"),
+                   no = NULL)
+)
+```
 
-time_plot_tbl <- processed_data_tbl %>%
-  mutate(date = floor_date(order.date, unit = "month")) %>%
-  group_by(date) %>%
-  
-  summarize(total_sales = sum(extended_price)) %>%
-  ungroup() %>%
-  mutate(label_text = str_glue("Date: {date}
+
+
+
+```{r}
+
+time_plot_tbl <-  reactive({
+
+  time_unit <- input$time_unit
+
+  processed_data_tbl %>%
+
+    filter(order.date %>% between(left  = input$date_range[1], 
+                                  right = input$date_range[2])) %>%
+    filter(category_1 %in% input$checkbox_category_1) %>%
+    
+    filter(category_2 %in% input$picker_category_2) %>%
+
+    mutate(date = floor_date(order.date, unit = time_unit)) %>%
+    group_by(date) %>%
+
+    summarize(total_sales = sum(extended_price)) %>%
+    ungroup() %>%
+
+    mutate(label_text = str_glue("Date: {date}
                                   Revenue: {scales::dollar(total_sales)}"))
 
-time_plot_tbl %>%
-  ggplot(aes(x = date, y = total_sales)) +
-  geom_line(color = "#2c3e50") +
-  geom_point(aes(text = label_text), color = "#2c3e50", size = .1)
+
+})
+
+# renderPrint({
+#   time_plot_tbl()
+# })
+
+output$plotly_2 <- renderPlotly({
+  
+  g <- time_plot_tbl() %>%
+    ggplot(aes(x = date, y = total_sales)) +
+    geom_line(color = "#2c3e50") +
+    geom_point(aes(text = label_text), color = "#2c3e50", size = .1) +
+    geom_smooth(method = "loess", span = 0.25) +
+
+    theme_tq() +
+    expand_limits(y = 0) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    labs(x="", y="")
+
+  ggplotly(g, tooltip = "text") %>%
+    layout(margin = list(b = 200))
+  
+})
+
+plotlyOutput(outputId = "plotly_2")
+
 
 ```
 
