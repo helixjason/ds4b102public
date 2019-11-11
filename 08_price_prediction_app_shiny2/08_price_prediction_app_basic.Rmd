@@ -63,14 +63,37 @@ hr()
 br()
 
 # Bike Family
-bikes_tbl
+categories_tbl <- bikes_tbl %>% separate_bike_description(keep_description_column = TRUE, append = FALSE) %>%
+  distinct(category_1, category_2)
+
+pickerInput(inputId = "picker_category_2",
+            label = h4("Bike Family"),
+            choices = categories_tbl$category_2,
+            selected = "Over Mountain")
 
 
 
 # Bike Type
+h4("Bike Type")
+bike_type <- reactive({
+  categories_tbl %>%
+    filter(category_2 == input$picker_category_2) %>%
+    pull(category_1)
+})
+
+output$bike_type <-  renderText(bike_type())
 
 
+strong(em(textOutput(outputId = "bike_type")))
+br()
 
+#Frame Material
+pickerInput(inputId = "picker_frame_material",
+            label = "Frame Material",
+            choices = c("Aluminum", "Carbon"),
+            selected = "Aluminum")
+
+br()
 
 actionButton(inputId = "apply",
              label = "Apply",
@@ -85,6 +108,18 @@ observeEvent(eventExpr = input$reset, handlerExpr = {
     session = session,
     inputId = "text_bike_model",
     value = "Jekyll A1 1 Black Inc."
+  )
+  
+  updatePickerInput(
+    session = session,
+    inputId = "picker_category_2",
+    selected = "Over Mountain"
+  )
+  
+  updatePickerInput(
+    session = session,
+    inputId = "picker_frame_material",
+    selected = "Aluminum"
   )
   
   shinyjs::delay(ms = 300, expr = {
@@ -107,9 +142,9 @@ new_bike_tbl <- eventReactive(eventExpr = input$apply,
                 
                 generate_new_bike(
                   bike_model =  input$text_bike_model,
-                  category_1 = "Mountain",
-                  category_2 = "Over Mountain",
-                  frame_material = "Aluminum",
+                  category_1 = bike_type(),
+                  category_2 = input$picker_category_2,
+                  frame_material = input$picker_frame_material,
                   .ml_model = model_xgboost
 )
                 
